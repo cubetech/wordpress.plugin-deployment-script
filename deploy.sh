@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Script to deploy from Github to WordPress.org Plugin Repository
 # A modification of Dean Clatworthy's deploy script as found here: https://github.com/deanc/wordpress-plugin-git-svn
@@ -6,8 +6,15 @@
 # Source: https://github.com/thenbrent/multisite-user-management/blob/master/deploy.sh
 
 #prompt for plugin slug
-echo -e "Plugin Slug: \c"
-read PLUGINSLUG
+if [ -z "$1" ]
+then
+	echo -e "Plugin Slug: \c"
+	read -e PLUGINSLUG
+else
+	PLUGINSLUG="$1"
+fi
+
+if [ ! -d "$PLUGINSLUG" ]; then echo "Folder '$PLUGINSLUG' does not exist. Exiting...."; exit 1; fi 
 
 # main config, set off of plugin slug
 CURRENTDIR=`pwd`
@@ -21,7 +28,7 @@ GITPATH="$CURRENTDIR/" # this file should be in the base of your git repository
 SVNPATH="/tmp/$PLUGINSLUG" # path to a temp SVN repo. No trailing slash required and don't add trunk.
 SVNURL="http://plugins.svn.wordpress.org/$PLUGINSLUG/" # Remote SVN repo on WordPress.org, with no trailing slash
 SVNUSER="XXX" # your svn username
-SVNPASS="XXX" # your svn password
+SVNPASS="XXX"
 
 # Let's begin...
 echo ".........................................."
@@ -31,7 +38,7 @@ echo
 echo ".........................................."
 echo 
 
-if [ "$SVNUSER" == "XXX" ]; then echo "Please update your SVN auth settings! Exiting..."; exit 1; fi
+# if [ "$SVNUSER" == "XXX" ]; then echo "Please update your SVN auth settings! Exiting..."; exit 1; fi
 
 # Check version in readme.txt is the same as plugin file
 NEWVERSION1=`grep "^Stable tag" $GITPATH/readme.txt | awk -F' ' '{print $3}'`
@@ -39,13 +46,15 @@ echo "readme version: $NEWVERSION1"
 NEWVERSION2=`grep "^Version" $GITPATH/$MAINFILE | awk -F' ' '{print $2}'`
 echo "$MAINFILE version: $NEWVERSION2"
 
-if [ "$NEWVERSION1" != "$NEWVERSION2" ]; then echo "Versions don't match. Exiting...."; exit 1; fi
+if [ `egrep -l $'\r'\$ $GITPATH/readme.txt` ] || [ `egrep -l $'\r'\$ $GITPATH/$MAINFILE` ]; then echo "STOP! There are files with windows line ending. Please clean this up! Exiting...."; exit 1; fi
+
+if [ "$NEWVERSION1" != "$NEWVERSION2" ]; then echo "Versions don't match. Exiting..."; exit 1; fi
 
 echo "Versions match in readme.txt and PHP file. Let's proceed..."
 
 cd $GITPATH
 echo -e "Enter a commit message for this new version: \c"
-read COMMITMSG
+read -e COMMITMSG
 git commit -am "$COMMITMSG"
 
 echo "Tagging new version in git"
@@ -63,7 +72,9 @@ echo "Ignoring github specific files and deployment script"
 svn propset svn:ignore "deploy.sh
 README.md
 .git
-.gitignore" "$SVNPATH/trunk/"
+.gitignore
+banner-772x250.*
+banner-1544x500.*" "$SVNPATH/trunk/"
 
 #export git -> SVN
 echo "Exporting the HEAD of master from git to the trunk of SVN"
@@ -90,7 +101,23 @@ svn copy trunk/ tags/$NEWVERSION1/
 cd $SVNPATH/tags/$NEWVERSION1
 svn commit --username=$SVNUSER --password=$SVNPASS -m "Tagging version $NEWVERSION1"
 
+echo "Add header image if exists"
+cd $SVNPATH
+if [ -f "$GITPATH/banner-772x250."* ]
+then
+	if [ ! -d "$SVNPATH/assets" ]
+	then
+		mkdir $SVNPATH/assets
+	fi
+
+	cp $GITPATH/banner-772x250.* $SVNPATH/assets/ 
+
+	svn status | grep -v "^.[ \t]*\..*" | grep "^?" | awk '{print $2}' | xargs svn add
+	svn commit --username=$SVNUSER --password=$SVNPASS -m "add banner image"
+
+fi
+
 echo "Removing temporary directory $SVNPATH"
 rm -fr $SVNPATH/
 
-echo "*** FIN ***"
+echo "*** FINISHED ***"
