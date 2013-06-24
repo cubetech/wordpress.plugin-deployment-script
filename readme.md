@@ -16,14 +16,12 @@ Use
 ---
 
 Place in parent directory (e.g. wp-content/plugins/) and run as ./deploy.sh (may need to chmod 0755 first)
+Update your auth settings in the deploy.sh script
 
 History
 -------
 
-Adapted from https://github.com/thenbrent/multisite-user-management/blob/master/deploy.sh
-
-thenbrent's version was a modification of Dean Clatworthy's deploy script found at
-https://github.com/deanc/wordpress-plugin-git-svn
+Forked from thenbrent, thanks!
 
 Changes
 -------
