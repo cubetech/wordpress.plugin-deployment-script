@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 # Script to deploy from Github to WordPress.org Plugin Repository
-# A modification of Dean Clatworthy's deploy script as found here: https://github.com/deanc/wordpress-plugin-git-svn
-# The difference is that this script lives in the plugin's git repo & doesn't require an existing SVN repo.
-# Source: https://github.com/thenbrent/multisite-user-management/blob/master/deploy.sh
+# Author: cubetech GmbH, www.cubetech.ch
+# Forked from thenbrent, thanks!
+# Source: https://github.com/cubetech/wordpress.plugin-deployment-script
 
-#prompt for plugin slug
+#prompt for plugin slug and check if directory exists
 if [ -z "$1" ]
 then
 	echo -e "Plugin Slug: \c"
@@ -14,7 +14,14 @@ else
 	PLUGINSLUG="$1"
 fi
 
-if [ ! -d "$PLUGINSLUG" ]; then echo "Folder '$PLUGINSLUG' does not exist. Exiting...."; exit 1; fi 
+if [ ! -d "$PLUGINSLUG" ]
+then
+	if [ ! -d "${PWD}/$PLUGINSLUG" ]
+	then
+		echo "Folder '$PLUGINSLUG' does not exist. Exiting...."
+		exit 1
+	fi
+fi 
 
 # main config, set off of plugin slug
 CURRENTDIR=`pwd`
@@ -28,17 +35,26 @@ GITPATH="$CURRENTDIR/" # this file should be in the base of your git repository
 SVNPATH="/tmp/$PLUGINSLUG" # path to a temp SVN repo. No trailing slash required and don't add trunk.
 SVNURL="http://plugins.svn.wordpress.org/$PLUGINSLUG/" # Remote SVN repo on WordPress.org, with no trailing slash
 SVNUSER="XXX" # your svn username
-SVNPASS="XXX"
+SVNPASS="XXX" # your svn password
 
 # Let's begin...
-echo ".........................................."
+echo "..........................................................."
 echo 
-echo "Preparing to deploy WordPress plugin"
+echo "WordPress plugin deployment script"
+echo "Developed by cubetech GmbH, www.cubetech.ch"
+echo
+echo "Preparing to deploy WordPress plugin:"
+echo "$PLUGINSLUG"
 echo 
-echo ".........................................."
+echo "..........................................................."
 echo 
 
-# if [ "$SVNUSER" == "XXX" ]; then echo "Please update your SVN auth settings! Exiting..."; exit 1; fi
+# Check if SVN settings are set
+if [ "$SVNUSER" == "XXX" ]; then echo "Please update your SVN auth settings! Exiting..."; exit 1; fi
+
+# Check if files properly exists
+if [ ! -f "$GITPATH/$MAINFILE" ]; then echo "Plugin is not properly developed. Needed file '$GITPATH$MAINFILE' does not exists. Exiting...."; exit 1; fi
+if [ ! -f "$GITPATH/readme.txt" ]; then echo "Plugin is not properly developed. Needed file '$GITPATH/readme.txt' does not exists. Exiting...."; exit 1; fi
 
 # Check version in readme.txt is the same as plugin file
 NEWVERSION1=`grep "^Stable tag" $GITPATH/readme.txt | awk -F' ' '{print $3}'`
@@ -97,9 +113,14 @@ svn commit --username=$SVNUSER --password=$SVNPASS -m "$COMMITMSG"
 
 echo "Creating new SVN tag & committing it"
 cd $SVNPATH
-svn copy trunk/ tags/$NEWVERSION1/
-cd $SVNPATH/tags/$NEWVERSION1
-svn commit --username=$SVNUSER --password=$SVNPASS -m "Tagging version $NEWVERSION1"
+if [ ! -d "tags/$NEWVERSION1/" ]
+then
+	svn copy trunk/ tags/$NEWVERSION1/
+	cd $SVNPATH/tags/$NEWVERSION1
+	svn commit --username=$SVNUSER --password=$SVNPASS -m "Tagging version $NEWVERSION1"
+else
+	echo "SVN tag already exists. Do nothing."
+fi
 
 echo "Add header image if exists"
 cd $SVNPATH
